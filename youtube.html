@@ -2,136 +2,87 @@
 <html>
 <head>
   <title>Drawing Program</title>
+  <style>
+    canvas {
+      border: 1px solid black;
+    }
+  </style>
 </head>
 <body>
   <canvas id="canvas" width="320" height="320"></canvas>
   <script>
-    // Colors
-    const BLACK = '#000000';
-    const WHITE = '#FFFFFF';
-    const RED = '#FF0000';
-    const GREEN = '#00FF00';
-    const BLUE = '#0000FF';
-    const YELLOW = '#FFFF00';
-    const PINK = '#FF00FF';
-    const LIGHT_BLUE = '#00FFFF';
-    const ORANGE = '#FFA500';
-    const DARK_GRAY = '#313131';
-
-    // Set up the canvas
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    const cellSize = 20;
-    const canvasSize = 16 * cellSize;
-    const canvasData = Array.from({ length: 16 }, () => Array.from({ length: 16 }, () => BLACK));
+    const colors = [
+      'rgb(0, 0, 0)', 'rgb(255, 255, 255)', 'rgb(255, 0, 0)',
+      'rgb(0, 255, 0)', 'rgb(0, 0, 255)', 'rgb(255, 255, 0)',
+      'rgb(255, 0, 255)', 'rgb(0, 255, 255)', 'rgb(255, 165, 0)',
+      'rgb(49, 49, 49)'
+    ];
+    const canvasSize = 16;
+    const gridSize = canvas.width / canvasSize;
+    const canvasPixels = Array.from({length: canvasSize}, () => Array(canvasSize).fill(0));
     let drawing = false;
-    let brushColor = BLACK;
+    let brushColor = colors[0];
     let lastBrushColor = brushColor;
 
     // Function to save canvas as txt file
     function saveCanvas() {
       let row = '';
-      canvasData.forEach(rowData => {
-        rowData.forEach(color => {
-          if (color === BLACK) row += '0';
-          else if (color === WHITE) row += '1';
-          else if (color === RED) row += '2';
-          else if (color === GREEN) row += '3';
-          else if (color === BLUE) row += '4';
-          else if (color === YELLOW) row += '5';
-          else if (color === PINK) row += '6';
-          else if (color === LIGHT_BLUE) row += '7';
-          else if (color === ORANGE) row += '8';
-          else if (color === DARK_GRAY) row += '9';
-        });
-        row += '-';
-      });
-      // Do something with the row data, e.g. send to server or display in console
-      console.log(row);
+      for (let i = 0; i < canvasSize; i++) {
+        for (let j = 0; j < canvasSize; j++) {
+          const colorIndex = colors.findIndex(color => color === canvasPixels[i][j]);
+          row += colorIndex !== -1 ? colorIndex.toString() : '-';
+        }
+        row += '\n';
+      }
+      const data = new Blob([row], {type: 'text/plain'});
+      const url = URL.createObjectURL(data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'canvas_pixels.txt';
+      link.click();
     }
 
-    // Event listener for keydown
-    document.addEventListener('keydown', (event) => {
-      if (!isNaN(parseInt(event.key)) && parseInt(event.key) >= 0 && parseInt(event.key) <= 9) {
-        const colorIndex = parseInt(event.key);
-        switch (colorIndex) {
-          case 0:
-            brushColor = BLACK;
-            break;
-          case 1:
-            brushColor = WHITE;
-            break;
-          case 2:
-            brushColor = RED;
-            break;
-          case 3:
-            brushColor = GREEN;
-            break;
-          case 4:
-            brushColor = BLUE;
-            break;
-          case 5:
-            brushColor = YELLOW;
-            break;
-          case 6:
-            brushColor = PINK;
-            break;
-          case 7:
-            brushColor = LIGHT_BLUE;
-            break;
-          case 8:
-            brushColor = ORANGE;
-            break;
-          case 9:
-            brushColor = DARK_GRAY;
-            break;
+    // Add event listeners
+    canvas.addEventListener('mousedown', () => drawing = true);
+    canvas.addEventListener('mouseup', () => drawing = false);
+    canvas.addEventListener('mousemove', (event) => {
+      if (drawing) {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+        const gridX = Math.floor(mouseX / gridSize);
+        const gridY = Math.floor(mouseY / gridSize);
+        if (gridX >= 0 && gridX < canvasSize && gridY >= 0 && gridY < canvasSize) {
+          canvasPixels[gridY][gridX] = brushColor;
+          ctx.fillStyle = brushColor;
+          ctx.fillRect(gridX * gridSize, gridY * gridSize, gridSize, gridSize);
         }
-      } else if (event.key === ' ' || event.key === 'Spacebar') {
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key >= '0' && event.key <= '9') {
+        const colorIndex = parseInt(event.key);
+        if (colorIndex >= 0 && colorIndex < colors.length) {
+          brushColor = colors[colorIndex];
+        }
+      } else if (event.key === ' ') {
         lastBrushColor = brushColor;
-        brushColor = BLACK;
+        brushColor = colors[0];
         drawing = true;
-      } else if (event.key === 's' || event.key === 'S') {
+      } else if (event.key === 's') {
         saveCanvas();
       }
     });
-
-    // Event listener for keyup
     document.addEventListener('keyup', (event) => {
-      if (event.key === ' ' || event.key === 'Spacebar') {
+      if (event.key === ' ') {
         drawing = false;
+        ctx.fillStyle = lastBrushColor;
         brushColor = lastBrushColor;
       }
-    });
+});
+</script>
 
-    // Event listener for mousemove
-    canvas.addEventListener('mousemove', (event) => {
-      if (drawing) {
-        const x = Math.floor(event.offsetX / cellSize);
-        const y = Math.floor(event.offsetY / cellSize);
-        if (x >= 0 && x < 16 && y >= 0 && y < 16) {
-          canvasData[y][x] = brushColor;
-          drawCell(x, y, brushColor);
-        }
-      }
-    });
-
-    // Function to draw a cell on the canvas
-    function drawCell(x, y, color) {
-      ctx.fillStyle = color;
-      ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-    }
-
-    // Function to initialize the canvas with cells
-    function initCanvas() {
-      for (let y = 0; y < 16; y++) {
-        for (let x = 0; x < 16; x++) {
-          drawCell(x, y, canvasData[y][x]);
-        }
-      }
-    }
-
-    // Initialize the canvas
-    initCanvas();
-  </script>
 </body>
 </html>
